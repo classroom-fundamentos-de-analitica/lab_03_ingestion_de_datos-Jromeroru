@@ -13,29 +13,43 @@ import pandas as pd
 
 
 def ingest_data():
-    df = pd.read_fwf(
-        "clusters_report.txt",
-        widths=[7, 16, 16, 79],
-        header=0,
-        skiprows=[1, 2, 3]
-    )
+    # Leer archivo
+    with open("clusters_report.txt", "r") as file:
+        lines = file.readlines()
+    # limpiar las lineas y remplazar multiples espacios por uno
+    dataRaw = [" ".join(line.strip().split()) for line in lines]
+    dataSinVacios = list(filter(None, dataRaw))
+    # eliminar separador
+    dataSinVacios.pop(2)
 
-    # Rellenar los valores nulos con los valores anteriores en las columnas de cluster, palabras clave y porcentaje
-    df['Cluster'].fillna(method='ffill', inplace=True)
-    df['Cantidad de'].fillna(method='ffill', inplace=True)
-    df['Porcentaje de'].fillna(method='ffill', inplace=True)
+    # separar las dos primeras lineas que seran los nombres de las columnas
+    headers = [dataSinVacios.pop(0), dataSinVacios.pop(0)]
+    headers = generateHeaders(headers[0], headers[1])
 
-    # Reemplazar los valores de porcentaje para quitar el signo % y convertirlos en números flotantes
-    df['Porcentaje de'] = df['Porcentaje de'].str.replace(',', '.').str.rstrip('%').astype(float)
+    # agregar punto faltante para poder identificar cada fila
+    dataSinVacios[23] = dataSinVacios[23] + "."
+    # separar filas por el punto
+    dataFilas = " ".join(dataSinVacios).split(".")
+    # eliminar vacio final
+    dataFilas.pop(-1)
 
-    # Agrupar por cluster, cantidad de palabras clave y porcentaje de palabras clave y unir las palabras clave
-    df = df.groupby(['Cluster', 'Cantidad de', 'Porcentaje de'])['Principales palabras clave'].apply(lambda x: ' '.join(x)).reset_index()
+    dataCleaned = []
 
-    # Reemplazar los nombres de las columnas y realizar otras transformaciones necesarias
-    df.columns = ['cluster', 'cantidad_de_palabras_clave', 'porcentaje_de_palabras_clave', 'principales_palabras_clave']
-    df['principales_palabras_clave'] = df['principales_palabras_clave'].str.replace(r'\s{2,}', ' ', regex=True)
-    df['principales_palabras_clave'] = df['principales_palabras_clave'].str.replace('.', '', regex=True)
+    for fila in dataFilas:
+        fila = fila.split("%")
+        datosPalabrasClave = fila[0].split()
+        palabrasClave = fila[1].strip()
 
+        for i in range(3):
+            datosPalabrasClave[i] = float(datosPalabrasClave[i].replace(",", "."))
+            if i in [0, 1]:
+                datosPalabrasClave[i] = int(datosPalabrasClave[i])
+
+        datosPalabrasClave.append(palabrasClave)
+
+        dataCleaned.append(datosPalabrasClave)
+
+    df = pd.DataFrame(dataCleaned, columns=headers)
+    
     return df
-
 
