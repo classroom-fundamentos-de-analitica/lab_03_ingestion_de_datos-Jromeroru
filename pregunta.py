@@ -13,39 +13,29 @@ import pandas as pd
 
 
 def ingest_data():
-    df = pd.read_fwf (
+    df = pd.read_fwf(
         "clusters_report.txt",
         widths=[7, 16, 16, 79],
-        header=[0],
+        header=0,
         skiprows=[1, 2, 3]
     )
 
-    lastcl = 1
-    lastpcl = 105
-    lastp = "15,9 %"
-    for i, _ in df.iterrows():
-        if df.iloc[i,0] != lastcl and not pd.isna(df.iloc[i,0]):
-            lastcl = df.iloc[i,0]
-            lastpcl = df.iloc[i,1]
-            lastp = df.iloc[i,2]
-        else:
-            df.iloc[i,0] = lastcl
-            df.iloc[i,1] = lastpcl
-            df.iloc[i,2] = lastp
+    # Rellenar los valores nulos con los valores anteriores en las columnas de cluster, palabras clave y porcentaje
+    df['Cluster'].fillna(method='ffill', inplace=True)
+    df['Cantidad de'].fillna(method='ffill', inplace=True)
+    df['Porcentaje de'].fillna(method='ffill', inplace=True)
 
-    df = df.groupby(["Cluster", "Cantidad de", "Porcentaje de"])
-    df = df.agg(lambda x: " ".join(x)).reset_index()
-    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(r"\s{2,}", " ", regex=True)
-    df["Principales palabras clave"] = df["Principales palabras clave"].str.replace(".", "", regex=True)
-    df["Porcentaje de"] = df["Porcentaje de"].str.slice(0, -2)
-    df["Porcentaje de"] = df["Porcentaje de"].str.replace(",", ".").astype(float)
+    # Reemplazar los valores de porcentaje para quitar el signo % y convertirlos en números flotantes
+    df['Porcentaje de'] = df['Porcentaje de'].str.replace(',', '.').str.rstrip('%').astype(float)
 
-    df.columns = [
-            "cluster",
-            "cantidad_de_palabras_clave",
-            "porcentaje_de_palabras_clave",
-            "principales_palabras_clave"
-    ]
+    # Agrupar por cluster, cantidad de palabras clave y porcentaje de palabras clave y unir las palabras clave
+    df = df.groupby(['Cluster', 'Cantidad de', 'Porcentaje de'])['Principales palabras clave'].apply(lambda x: ' '.join(x)).reset_index()
+
+    # Reemplazar los nombres de las columnas y realizar otras transformaciones necesarias
+    df.columns = ['cluster', 'cantidad_de_palabras_clave', 'porcentaje_de_palabras_clave', 'principales_palabras_clave']
+    df['principales_palabras_clave'] = df['principales_palabras_clave'].str.replace(r'\s{2,}', ' ', regex=True)
+    df['principales_palabras_clave'] = df['principales_palabras_clave'].str.replace('.', '', regex=True)
 
     return df
+
 
